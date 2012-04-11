@@ -1,0 +1,22 @@
+#!/usr/bin/env perl
+#=======================================================================
+#	$Id$
+#=======================================================================
+use strict;
+use lib '/home/pythontech/lib/site_perl/5.6.1';
+use lib '/home/pythontech/lib';
+use lib '/home/pythontech/ptapps/webfiler/lib';
+
+use PythonTech::WebServer;
+use PythonTech::SessionDB::CGI;
+use PythonTech::WebFiler;
+
+my $TESTS = $::ENV{PSYNC_TESTS} or die "PSYNC_TESTS not set\n";
+my $sessiondb = new PythonTech::SessionDB::CGI(sessiondir => "$TESTS/tmp");
+my $server = new PythonTech::WebServer(sessiondb => $sessiondb,
+				       loginurl => '/login');
+my $app = new PythonTech::WebFiler(basePath => "$TESTS/b",
+				   authentication => 'cookie',
+				   readPermission => ['psync'],
+				   writePermission =>['psync']);
+$app->webquery($server->cgi_query);
