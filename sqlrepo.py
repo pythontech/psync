@@ -12,7 +12,7 @@ class SqlRepo(psync.Repo):
         exists = os.path.exists(filename)
         self.conn = sqlite3.connect(filename)
         self.cursor = self.conn.cursor()
-        if exists:
+        if not exists:
             self._create_tables()
 
     def getstate(self, path):
