@@ -1,5 +1,6 @@
 import ConfigParser
 import psync
+import os
 
 class PsyncApp:
     def __init__(self):
@@ -32,7 +33,6 @@ class PsyncApp:
         opts, args = op.parse_args(argv)
         inifile = opts.config
         if inifile is None:
-            import os
             inifile = os.path.expanduser('~/.psync')
         self.read_inifile(inifile)
         # Process arguments
@@ -48,17 +48,17 @@ class PsyncApp:
 def make_repo(repodef):
     cls, path = repodef.split(':', 2)
     if cls == 'shelve':
-        return psync.ShelveRepo(path)
+        return psync.ShelveRepo(os.path.expanduser(path))
     elif cls == 'sqlite':
         import sqlrepo
-        return sqlrepo.SqlRepo(path)
+        return sqlrepo.SqlRepo(os.path.expanduser(path))
     else:
         raise ValueError, 'Unknown repo type %r' % cls
 
 def make_coll(colldef):
     cls, path = colldef.split(':', 2)
     if cls == 'file':
-        return psync.FileCollection(path)
+        return psync.FileCollection(os.path.expanduser(path))
     else:
         raise ValueError, 'Unknown collection type %r' % cls
 
