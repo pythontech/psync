@@ -2,9 +2,12 @@ import ConfigParser
 import psync
 import os
 
+class CmdError(Exception): pass
+class UsageError(Exception): pass
+
 class PsyncApp:
     def __init__(self):
-        self.syncs = {}
+        self.syncs = {}         # name -> Sync
 
     def read_inifile(self, inifile):
         cp = ConfigParser.SafeConfigParser()
@@ -38,12 +41,42 @@ class PsyncApp:
         # Process arguments
         if len(args) < 1:
             op.error('No command')
-        cmd = args.pop(0)
+        else:
+            try:
+                self.do_cmd(args[0], args[1:], opts)
+            except UsageError, e:
+                op.error('Error in %s command: %s' % (args[0], e.args[0]))
+            except CmdError, e:
+                op.error(e.args[0])
+
+    def do_cmd(self, cmd, args, opts):
         if cmd == 'list':
             for name in sorted(self.syncs.keys()):
                 print name
         else:
-            self.error('Unknown/unimplemented command %r' % cmd)
+            # Other commands need a Sync
+            if len(args) < 1:
+                raise UsageError('no sync specified')
+            syncname = args.pop(0)
+            if not syncname in self.syncs:
+                raise CommandError('unknown sync %r' % syncname)
+            sync = self.syncs[syncname]
+            if cmd == 'show':
+                if args:
+                    raise UsageError('excess arguments')
+                print 'a', sync.a
+                print 'b', sync.b
+            elif cmd == 'status':
+                if not args:
+                    raise UsageError('missing path')
+                if len(args) > 1:
+                    raise UsageError('excess arguments')
+                spath = args.pop(0)
+                path = spath.split('/')
+                state = sync.repo.getstate(path)
+                print state
+            else:
+                raise CmdError('Unknown/unimplemented command %r' % cmd)
 
 def make_repo(repodef):
     cls, path = repodef.split(':', 2)
