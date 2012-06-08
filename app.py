@@ -1,6 +1,11 @@
+#=======================================================================
+#       Command-line application
+#=======================================================================
 import ConfigParser
 import psync
+import sys
 import os
+import logging
 
 class CmdError(Exception): pass
 class UsageError(Exception): pass
@@ -27,13 +32,18 @@ class PsyncApp:
         psync b <sync> <path>...
         '''
         from optparse import OptionParser
-        op = OptionParser()
+        op = OptionParser('%prog [options] method [arg..]')
         op.add_option('--config','-c',
                       help='alternative to ~/.psync')
+        op.add_option('--debug','-d',
+                      action='store_true',
+                      help='Debug logging')
         if argv is not None:
             op.prog = argv[0]
             argv = argv[1:]
         opts, args = op.parse_args(argv)
+        if opts.debug:
+            logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
         inifile = opts.config
         if inifile is None:
             inifile = os.path.expanduser('~/.psync')
@@ -72,14 +82,22 @@ class PsyncApp:
                 if len(args) > 1:
                     raise UsageError('excess arguments')
                 spath = args.pop(0)
-                path = spath.split('/')
+                if not spath:
+                    path = []
+                else:
+                    path = spath.split('/')
                 state = sync.repo.getstate(path)
                 print state
+            elif cmd == 'scan':
+                if len(args) > 0:
+                    raise UsageError('excess arguments')
+                sync.run()
             else:
                 raise CmdError('Unknown/unimplemented command %r' % cmd)
 
 def make_repo(repodef):
-    cls, path = repodef.split(':', 2)
+    '''Convert "class:path" string into Repo instance'''
+    cls, path = repodef.split(':', 1)
     if cls == 'shelve':
         return psync.ShelveRepo(os.path.expanduser(path))
     elif cls == 'sqlite':
@@ -89,7 +107,8 @@ def make_repo(repodef):
         raise ValueError, 'Unknown repo type %r' % cls
 
 def make_coll(colldef):
-    cls, path = colldef.split(':', 2)
+    '''Convert "class:path" string into Collection instance'''
+    cls, path = colldef.split(':', 1)
     if cls == 'file':
         return psync.FileCollection(os.path.expanduser(path))
     else:
