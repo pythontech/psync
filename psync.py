@@ -43,6 +43,7 @@
 #=======================================================================
 import os
 import stat
+import logging
 
 class NotYet(Exception): pass
 class Abstract(Exception): pass
@@ -310,9 +311,17 @@ class Sync:
         self.repo = repo
         self.a = a
         self.b = b
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def run(self):
-        self.sync_dir(())
+        path = ()
+        rootstate = self.repo.getstate(path)
+        if not rootstate:
+            astate = self.a.getstate(path)
+            bstate = self.b.getstate(path)
+            self.sync_initial(path, astate, bstate)
+        else:
+            self.sync_dir(path)
 
     def sync_item(self, path, astate, bstate):
         syncstate = self.repo.getstate(path)
@@ -323,22 +332,27 @@ class Sync:
 
     def sync_initial(self, path, astate, bstate):
         '''Perform initial synchronisation, where no shared state known'''
+        spath = '/'.join(path)
         if astate and bstate:
             # Item exists in both collections
+            self.logger.info('In both: %r' % spath)
             if astate.type == 'd' and bstate.type == 'd':
+                self.repo.setstate(path, 'd', astate.vsn, bstate.vsn)
                 self.sync_dir(path)
             else:
                 self.conflict(path, astate, bstate)
         elif astate:
+            self.logger.info('New in a: %r' % spath)
             self.a_to_b(path, astate, bstate)
             if astate.type == 'd':
                 self.sync_dir(path)
         elif bstate:
+            self.logger.info('New in b: %r' % spath)
             self.b_to_a(path, astate, bstate)
             if bstate.type == 'd':
                 self.sync_dir(path)
         else:
-            print 'In neither: %s' % path
+            print 'In neither: %s' % '/'.join(path)
 
     def sync_update(self, path, astate, bstate, syncstate):
         '''Synchronise where previous synchronisation done'''
@@ -367,7 +381,9 @@ class Sync:
         adir = self.a.readdir(path)
         bdir = self.b.readdir(path)
         sdir = self.repo.readdir(path)
-        for leaf in set(adir.keys() + bdir.keys() + sdir):
+        leaves = set(adir.keys() + bdir.keys() + sdir)
+        self.logger.info('Leaves: %r' % leaves)
+        for leaf in leaves:
             astate = adir.get(leaf)
             bstate = bdir.get(leaf)
             self.sync_item(path+(leaf,), astate, bstate)
