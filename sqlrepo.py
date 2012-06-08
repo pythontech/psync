@@ -5,6 +5,9 @@
 import sqlite3
 import psync
 import os
+import logging
+
+_logger = logging.getLogger('SqlRepo')
 
 class SqlRepo(psync.Repo):
     def __init__(self, filename):
@@ -19,7 +22,7 @@ class SqlRepo(psync.Repo):
         id = self._pathid(path)
         if id is None:
             return None
-        sql = 'SELECT type,avsn,bvsn FROM state WHERE id=?'
+        sql = 'SELECT type,a,b FROM state WHERE id=?'
         row = self._1row(sql, id)
         if row is None:
             return None
@@ -66,14 +69,15 @@ class SqlRepo(psync.Repo):
         return dir
 
     def _create_tables(self):
+        _logger.debug('Creating tables')
         c = self.conn.cursor()
         c.execute('CREATE TABLE item (id INTEGER PRIMARY KEY, parent INTEGER, leaf TEXT);')
         c.execute('CREATE TABLE state (id INTEGER PRIMARY KEY, type TEXT, a TEXT, b TEXT, conflict TEXT);')
         #c.execute('CREATE INDEX child ON item(parent,leaf);')
 
     def _pathid(self, path, create=False):
-        # Get primary key for path, optionally creating if not in database
-        id = 0
+        '''Get primary key for path, optionally creating if not in database'''
+        pid = 0
         for step in path:
             row = self._1row('SELECT id FROM item WHERE parent=? AND leaf=?',
                              pid, step)
@@ -82,23 +86,29 @@ class SqlRepo(psync.Repo):
                     return None
                 # Create new item
                 sql = 'INSERT INTO item (id,parent,leaf) VALUES (NULL,?,?);'
-                cid = self._add(sql, id, step)
+                cid = self._add(sql, pid, step)
             else:
                 cid, = row
-            id = cid
-        return id
+            pid = cid
+        return pid
 
     def _do(self, sql, *values):
-        c = self.conn.cursor
+        '''Execute an SQL command, filling in values'''
+        c = self.conn.cursor()
+        _logger.debug('%r %r' % (sql, values))
         c.execute(sql, values)
 
-    def _1row(self, sql *values):
-        c = self.conn.cursor
+    def _1row(self, sql, *values):
+        '''Execute an SQL command, returning a single row'''
+        c = self.conn.cursor()
+        _logger.debug('%r %r' % (sql, values))
         c.execute(sql, values)
         return c.fetchone()
 
     def _iterrows(self, sql, *values):
+        '''Execute an SQL command, iterating over result rows'''
         c = self.conn.cursor()
+        _logger.debug('%r %r' % (sql, values))
         c.execute(sql, values)
         while True:
             row = c.fetchone()
@@ -107,6 +117,9 @@ class SqlRepo(psync.Repo):
             yield row
 
     def _add(self, sql, *values):
+        '''Add a row, returning its id'''
         c = self.conn.cursor()
+        _logger.debug('%r %r' % (sql, values))
         c.execute(sql, values)
+        _logger.debug('lastrowid = %s' % c.lastrowid)
         return c.lastrowid
