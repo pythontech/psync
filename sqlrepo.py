@@ -97,6 +97,7 @@ class SqlRepo(psync.Repo):
         c = self.conn.cursor()
         _logger.debug('%r %r' % (sql, values))
         c.execute(sql, values)
+        self.conn.commit()
 
     def _1row(self, sql, *values):
         '''Execute an SQL command, returning a single row'''
@@ -121,5 +122,6 @@ class SqlRepo(psync.Repo):
         c = self.conn.cursor()
         _logger.debug('%r %r' % (sql, values))
         c.execute(sql, values)
+        self.conn.commit()
         _logger.debug('lastrowid = %s' % c.lastrowid)
         return c.lastrowid
